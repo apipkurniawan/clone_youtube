@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+
+* { scrollbar-width: thin; scrollbar-color: #c5c5c5 transparent; }
+::selection { background: #ffb9c7; color: #111; }
