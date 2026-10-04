@@ -5,6 +5,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Bell, ChevronDown, Clock3, Compass, Flame, History, Home, Menu, Mic, Moon, PlaySquare, Plus, Search, Settings, Sun, ThumbsUp, Video, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useAppState } from "@/components/app-state";
 import { cn } from "@/lib/utils";
 
 type NavItem = { label: string; icon: typeof Home; href: string; key: string };
@@ -32,6 +33,8 @@ function Logo() {
 }
 
 export function AppShell({ children, active = "home", wide = false }: { children: ReactNode; active?: string; wide?: boolean }) {
+  const { syncMode } = useAppState();
+  const profileName = syncMode === "supabase" ? "Penonton" : "Raka Pratama";
   const router = useRouter();
   const [expanded, setExpanded] = useState(!wide);
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -73,7 +76,7 @@ export function AppShell({ children, active = "home", wide = false }: { children
         <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Buka pencarian" onClick={() => setMobileSearch(true)}><Search size={21} /></Button>
         <DropdownMenu.Root><DropdownMenu.Trigger asChild><Button variant="ghost" size="icon" aria-label="Buat konten"><Plus size={23} /></Button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content sideOffset={10} align="end" className="z-[70] min-w-48 rounded-xl border border-zinc-200 bg-white p-1.5 text-sm shadow-xl dark:border-zinc-700 dark:bg-zinc-900"><DropdownMenu.Item onSelect={() => setNotice("Upload video akan tersedia segera.")} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800"><Video size={18} /> Upload video</DropdownMenu.Item></DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
         <Button variant="ghost" size="icon" aria-label="Notifikasi" className="hidden sm:inline-flex" onClick={() => setNotice("Belum ada notifikasi baru.")}><Bell size={21} /></Button>
-        <DropdownMenu.Root><DropdownMenu.Trigger asChild><button aria-label="Menu profil" className="ml-1 rounded-full outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-blue-500"><Avatar name="Raka" color="#6554cb" className="h-8 w-8" /></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content sideOffset={12} align="end" className="z-[70] w-64 rounded-xl border border-zinc-200 bg-white p-2 text-sm shadow-xl dark:border-zinc-700 dark:bg-zinc-900"><div className="flex items-center gap-3 border-b border-zinc-100 px-2 py-3 dark:border-zinc-800"><Avatar name="Raka" color="#6554cb" className="h-10 w-10" /><div><p className="font-semibold">Raka Pratama</p><p className="text-xs text-zinc-500">@raka.pratama</p></div></div><DropdownMenu.Item onSelect={toggleTheme} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800">{dark ? <Sun size={18} /> : <Moon size={18} />} Tampilan {dark ? "terang" : "gelap"}</DropdownMenu.Item><DropdownMenu.Item onSelect={() => setNotice("Pengaturan akun akan tersedia segera.")} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800"><Settings size={18} /> Pengaturan</DropdownMenu.Item></DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
+        <DropdownMenu.Root><DropdownMenu.Trigger asChild><button aria-label="Menu profil" className="ml-1 rounded-full outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-blue-500"><Avatar name={profileName} color="#6554cb" className="h-8 w-8" /></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content sideOffset={12} align="end" className="z-[70] w-64 rounded-xl border border-zinc-200 bg-white p-2 text-sm shadow-xl dark:border-zinc-700 dark:bg-zinc-900"><div className="flex items-center gap-3 border-b border-zinc-100 px-2 py-3 dark:border-zinc-800"><Avatar name={profileName} color="#6554cb" className="h-10 w-10" /><div><p className="font-semibold">{profileName}</p><p className="text-xs text-zinc-500">{syncMode === "supabase" ? "Sesi anonim" : "@raka.pratama"}</p></div></div><DropdownMenu.Item onSelect={toggleTheme} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800">{dark ? <Sun size={18} /> : <Moon size={18} />} Tampilan {dark ? "terang" : "gelap"}</DropdownMenu.Item><DropdownMenu.Item onSelect={() => setNotice("Pengaturan akun akan tersedia segera.")} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800"><Settings size={18} /> Pengaturan</DropdownMenu.Item></DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
       </div>
     </header>
 

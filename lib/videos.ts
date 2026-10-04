@@ -10,6 +10,7 @@ export type Video = {
   uploaded: string;
   duration: string;
   description: string;
+  videoUrl?: string;
   subscribers: string;
   likes: string;
   verified?: boolean;
