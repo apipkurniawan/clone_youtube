@@ -47,7 +47,7 @@ Mode lokal tidak mengirim video ke server, tidak dapat dibuka dari perangkat/bro
 1. `GET /watch/:id` memakai `getServerSideProps` dan `listVideos()` untuk video Supabase/fixture. ID lokal (`local-<uuid>`) diberi shell SSR, kemudian metadata dan file dimuat di browser. ID server yang tidak ditemukan menghasilkan 404.
 2. `GET /api/videos` membaca row `public.videos` dengan `status = published`; jika Supabase tidak dikonfigurasi, kosong, atau gagal, katalog fixture digunakan. `GET /api/videos/:id` memakai sumber yang sama.
 3. Pemutar HTML5 meminta `video_url` Storage secara langsung, `/demo-video.mp4` untuk fixture, atau object URL IndexedDB untuk upload lokal. Thumbnail yang disimpan ditampilkan sebagai poster.
-4. Saat halaman dibuka, `AppStateProvider.addHistory()` mencatat histori. Suka, simpan, subscription, dan komentar memakai API Supabase bila sesi tersedia; mode dummy menyimpan aktivitas di browser. View count yang tampil masih teks statis dan belum bertambah saat diputar.
+4. Saat halaman dibuka, `AppStateProvider.addHistory()` mencatat histori jika opsi **Simpan histori tontonan** di `/settings` aktif. Pengguna dapat menghapus histori dari halaman tersebut; mode Supabase memanggil `DELETE /api/library?kind=history`, sedangkan mode dummy menghapus state lokal. Suka, simpan, subscription, dan komentar memakai API Supabase bila sesi tersedia. View count yang tampil masih teks statis dan belum bertambah saat diputar.
 
 ## Batas implementasi dan pengembangan berikutnya
 

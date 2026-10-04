@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { GetServerSideProps } from "next";
 import Head from "next/head";
 import Link from "next/link";
@@ -27,7 +27,9 @@ export default function WatchPage({ initialVideo, initialCatalog }: Props) {
 }
 
 function WatchContent({ video, catalog }: { video: Video; catalog: Video[] }) {
-  const { liked, saved, subscriptions, stateReady, syncMode, toggleLiked, toggleSaved, toggleSubscription, addHistory } = useAppState();
+  const { liked, saved, subscriptions, stateReady, syncMode, preferences, preferencesReady, toggleLiked, toggleSaved, toggleSubscription, addHistory } = useAppState();
+  const playerRef = useRef<HTMLVideoElement | null>(null);
+  const historyDecidedRef = useRef(false);
   const [expanded, setExpanded] = useState(false);
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState<VideoComment[]>(demoComments);
@@ -37,7 +39,12 @@ function WatchContent({ video, catalog }: { video: Video; catalog: Video[] }) {
   const [localVideoError, setLocalVideoError] = useState(false);
   const recommendations = catalog.filter((item) => item.id !== video.id && !item.short).sort((a, b) => Number(b.category === video.category) - Number(a.category === video.category)).slice(0, 9);
 
-  useEffect(() => { if (stateReady) addHistory(video.id); }, [video.id, stateReady, addHistory]);
+  useEffect(() => {
+    if (!stateReady || !preferencesReady || historyDecidedRef.current) return;
+    historyDecidedRef.current = true;
+    if (preferences.saveHistory) addHistory(video.id);
+  }, [video.id, stateReady, preferencesReady, preferences.saveHistory, addHistory]);
+  useEffect(() => { if (playerRef.current) playerRef.current.playbackRate = preferences.playbackRate; }, [preferences.playbackRate, localVideoUrl]);
   useEffect(() => {
     if (!video.id.startsWith("local-")) return;
     let active = true;
@@ -92,7 +99,7 @@ function WatchContent({ video, catalog }: { video: Video; catalog: Video[] }) {
     <Head><title>{video.title} - YouTube Clone</title><meta name="description" content={video.description} /></Head>
     <div className="mx-auto grid max-w-[1740px] grid-cols-1 gap-6 px-4 pb-24 pt-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-7 xl:grid-cols-[minmax(0,1fr)_400px]">
       <div className="min-w-0">
-        <div className="relative aspect-video overflow-hidden rounded-xl bg-black">{video.id.startsWith("local-") && !localVideoUrl ? <div className="flex h-full items-center justify-center text-sm text-white">{localVideoError ? "File video demo tidak tersedia di browser ini." : "Memuat video dari browser..."}</div> : <video key={`${video.id}:${localVideoUrl}`} className="h-full w-full" controls playsInline poster={video.thumbnail} preload="none" aria-label={`Pemutar video ${video.title}`}><source src={video.id.startsWith("local-") ? localVideoUrl : video.videoUrl ?? "/demo-video.mp4"} type="video/mp4" />Browser Anda tidak mendukung pemutaran video.</video>}{!video.id.startsWith("local-") && (!video.videoUrl || video.videoUrl === "/demo-video.mp4") && <span className="pointer-events-none absolute left-3 top-3 rounded bg-black/65 px-2 py-1 text-[11px] font-semibold text-white">Video demo</span>}</div>
+        <div className="relative aspect-video overflow-hidden rounded-xl bg-black">{video.id.startsWith("local-") && !localVideoUrl ? <div className="flex h-full items-center justify-center text-sm text-white">{localVideoError ? "File video demo tidak tersedia di browser ini." : "Memuat video dari browser..."}</div> : <video ref={playerRef} key={`${video.id}:${localVideoUrl}`} className="h-full w-full" controls playsInline poster={video.thumbnail} preload="none" onLoadedMetadata={(event) => { event.currentTarget.playbackRate = preferences.playbackRate; }} aria-label={`Pemutar video ${video.title}`}><source src={video.id.startsWith("local-") ? localVideoUrl : video.videoUrl ?? "/demo-video.mp4"} type="video/mp4" />Browser Anda tidak mendukung pemutaran video.</video>}{!video.id.startsWith("local-") && (!video.videoUrl || video.videoUrl === "/demo-video.mp4") && <span className="pointer-events-none absolute left-3 top-3 rounded bg-black/65 px-2 py-1 text-[11px] font-semibold text-white">Video demo</span>}</div>
         <h1 className="mt-4 text-xl font-bold leading-snug">{video.title}</h1>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3"><Link href={`/?channel=${encodeURIComponent(video.channel)}`}><Avatar name={video.channel} color={video.avatar} className="h-10 w-10" /></Link><div className="min-w-0"><Link href={`/?channel=${encodeURIComponent(video.channel)}`} className="flex items-center gap-1 text-sm font-bold hover:underline">{video.channel}{video.verified && <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-zinc-500 text-white"><Check size={9} strokeWidth={3} /></span>}</Link><p className="text-xs text-zinc-500 dark:text-zinc-400">{video.subscribers} subscriber</p></div><Button size="sm" variant={subscriptions.includes(video.channel) ? "secondary" : "default"} className="ml-2" onClick={() => toggleSubscription(video.channel)}>{subscriptions.includes(video.channel) ? "Subscribed" : "Subscribe"}</Button></div>

@@ -5,12 +5,22 @@ import { videos as demoVideos, type Video } from "@/lib/videos";
 
 type StoredState = { liked: string[]; saved: string[]; history: string[]; subscriptions: string[] };
 type ActionKind = "like" | "save" | "history" | "subscribe";
+export type ThemePreference = "system" | "light" | "dark";
+export type PlaybackRate = 0.75 | 1 | 1.25 | 1.5 | 2;
+type Preferences = { theme: ThemePreference; playbackRate: PlaybackRate; saveHistory: boolean };
 type AppState = StoredState & {
   catalog: Video[];
   catalogSource: "dummy" | "supabase";
   catalogReady: boolean;
   stateReady: boolean;
   syncMode: "local" | "supabase";
+  preferences: Preferences;
+  resolvedTheme: "light" | "dark";
+  preferencesReady: boolean;
+  setTheme: (theme: ThemePreference) => void;
+  setPlaybackRate: (rate: PlaybackRate) => void;
+  setSaveHistory: (enabled: boolean) => void;
+  clearHistory: () => Promise<void>;
   toggleLiked: (id: string) => void;
   toggleSaved: (id: string) => void;
   toggleSubscription: (channel: string) => void;
@@ -20,8 +30,10 @@ type AppState = StoredState & {
 };
 
 const initialState: StoredState = { liked: [], saved: [], history: [], subscriptions: [] };
+const initialPreferences: Preferences = { theme: "system", playbackRate: 1, saveHistory: true };
 const StateContext = createContext<AppState | null>(null);
 const storageKey = "youtube-clone-state";
+const preferencesKey = "youtube-clone-preferences";
 const syncedKey = `youtube-clone-state-synced:${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "local"}`;
 
 function mergeState(local: StoredState, remote: StoredState): StoredState {
@@ -51,6 +63,39 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [catalogReady, setCatalogReady] = useState(false);
   const [stateReady, setStateReady] = useState(false);
   const [syncMode, setSyncMode] = useState<"local" | "supabase">("local");
+  const [preferences, setPreferences] = useState<Preferences>(initialPreferences);
+  const [preferencesReady, setPreferencesReady] = useState(false);
+  const [systemDark, setSystemDark] = useState(false);
+  const resolvedTheme = preferences.theme === "system" ? (systemDark ? "dark" : "light") : preferences.theme;
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setSystemDark(media.matches);
+    media.addEventListener("change", onChange);
+    const timer = window.setTimeout(() => {
+      onChange();
+      try {
+        const stored = JSON.parse(localStorage.getItem(preferencesKey) ?? "{}") as Partial<Preferences>;
+        setPreferences({
+          theme: stored.theme === "dark" || stored.theme === "light" ? stored.theme : "system",
+          playbackRate: [0.75, 1, 1.25, 1.5, 2].includes(Number(stored.playbackRate)) ? Number(stored.playbackRate) as PlaybackRate : 1,
+          saveHistory: typeof stored.saveHistory === "boolean" ? stored.saveHistory : true,
+        });
+      } catch { setPreferences(initialPreferences); }
+      setPreferencesReady(true);
+    }, 0);
+    return () => { media.removeEventListener("change", onChange); window.clearTimeout(timer); };
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesReady) return;
+    document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
+    localStorage.setItem(preferencesKey, JSON.stringify(preferences));
+  }, [preferences, preferencesReady, resolvedTheme]);
+
+  const setTheme = useCallback((theme: ThemePreference) => setPreferences((current) => ({ ...current, theme })), []);
+  const setPlaybackRate = useCallback((playbackRate: PlaybackRate) => setPreferences((current) => ({ ...current, playbackRate })), []);
+  const setSaveHistory = useCallback((saveHistory: boolean) => setPreferences((current) => ({ ...current, saveHistory })), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +132,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
             subscriptions: local.subscriptions.filter((channel) => validChannels.has(channel)),
           };
           const alreadySynced = localStorage.getItem(syncedKey) === "true";
-          const next = alreadySynced ? remote : mergeState(transferableLocal, remote);
+          const localOnly: StoredState = {
+            liked: local.liked.filter((id) => id.startsWith("local-")),
+            saved: local.saved.filter((id) => id.startsWith("local-")),
+            history: local.history.filter((id) => id.startsWith("local-")),
+            subscriptions: [],
+          };
+          const next = mergeState(localOnly, alreadySynced ? remote : mergeState(transferableLocal, remote));
           if (!alreadySynced) {
             const missing: Array<Promise<void>> = [];
             for (const id of transferableLocal.liked.filter((id) => !remote.liked.includes(id))) missing.push(sendAction("like", id));
@@ -147,9 +198,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [state.subscriptions, sync]);
 
   const addHistory = useCallback((id: string) => {
+    if (!preferencesReady || !preferences.saveHistory) return;
     setState((current) => ({ ...current, history: [id, ...current.history.filter((item) => item !== id)].slice(0, 30) }));
     sync("history", id);
-  }, [sync]);
+  }, [preferencesReady, preferences.saveHistory, sync]);
+
+  const clearHistory = useCallback(async () => {
+    if (syncMode === "supabase") {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Sesi Supabase tidak tersedia. Coba lagi.");
+      const response = await fetch("/api/library?kind=history", { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error("Histori Supabase belum dapat dihapus. Coba lagi.");
+    }
+    setState((current) => ({ ...current, history: [] }));
+  }, [syncMode]);
 
   const addLocalVideo = useCallback((video: Video) => {
     setCatalog((current) => [video, ...current.filter((item) => item.id !== video.id)]);
@@ -165,6 +227,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   return <StateContext.Provider value={{
     ...state, catalog, catalogSource, catalogReady, stateReady, syncMode,
+    preferences, resolvedTheme, preferencesReady, setTheme, setPlaybackRate, setSaveHistory, clearHistory,
     toggleLiked, toggleSaved, toggleSubscription, addHistory, addLocalVideo, refreshCatalog,
   }}>{children}</StateContext.Provider>;
 }

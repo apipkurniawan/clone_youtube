@@ -13,6 +13,8 @@ Buka `http://localhost:3000`. Tidak perlu database untuk mencoba beranda, pencar
 
 Pencarian suara tersedia lewat tombol mikrofon di header, termasuk pada layar seluler. Izinkan akses mikrofon saat diminta, lalu ucapkan kata kunci; hasil transkrip final akan membuka halaman hasil pencarian. Fitur ini menggunakan Web Speech API pada browser yang mendukungnya. Jika tidak tersedia atau izin ditolak, gunakan kolom pencarian teks.
 
+Halaman **Pengaturan** dapat dibuka dari menu profil atau navigasi samping. Tema (terang, gelap, atau mengikuti sistem), kecepatan pemutaran, dan pilihan menyimpan histori tersimpan di browser. Tombol hapus histori menghapus data lokal atau histori akun Supabase saat sinkronisasi aktif.
+
 ## Menghubungkan Supabase
 
 1. Buat project Supabase dan aktifkan **Authentication → Providers → Anonymous Sign-Ins**.
@@ -36,7 +38,7 @@ Rincian perilaku saat ini dan rancangan fitur upload ada di [dokumentasi flow up
 | `/api/videos/:id` | GET | Detail video |
 | `/api/comments?videoId=:id` | GET | Komentar video |
 | `/api/comments` | POST | Kirim komentar; memakai bearer token saat Supabase aktif |
-| `/api/library` | GET, POST | Baca atau ubah suka, simpan, histori, dan subscription |
+| `/api/library` | GET, POST, DELETE | Baca atau ubah suka, simpan, histori, dan subscription; DELETE `?kind=history` menghapus histori akun |
 | `/api/uploads` | POST | Verifikasi file Storage dan publikasikan metadata video milik kreator |
 
 Thumbnail dan video contoh berada di `public/`, sehingga mode dummy tidak bergantung pada layanan media eksternal. Thumbnail berasal dari Unsplash. Video contoh berasal dari [MDN interactive examples](https://github.com/mdn/interactive-examples) (CC0).

@@ -13,9 +13,10 @@ function validAction(value: unknown): value is Action {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "GET" && req.method !== "POST") return res.status(405).setHeader("Allow", "GET, POST").json({ error: "Method not allowed" });
+  if (req.method !== "GET" && req.method !== "POST" && req.method !== "DELETE") return res.status(405).setHeader("Allow", "GET, POST, DELETE").json({ error: "Method not allowed" });
   res.setHeader("Cache-Control", "private, no-store");
   if (req.method === "POST" && !validAction(req.body)) return res.status(400).json({ error: "Aksi tidak valid" });
+  if (req.method === "DELETE" && req.query.kind !== "history") return res.status(400).json({ error: "Jenis data tidak valid" });
   if (!isSupabaseConfigured) return res.status(200).json(req.method === "GET" ? { source: "dummy", state: emptyState } : { source: "dummy", ok: true, persisted: false });
 
   try {
@@ -37,6 +38,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         history: history.data?.map((item) => item.video_id) ?? [],
         subscriptions: subscriptions.data?.map((item) => item.channel) ?? [],
       } });
+    }
+
+    if (req.method === "DELETE") {
+      const { error } = await client.from("watch_history").delete().eq("user_id", user.id);
+      if (error) throw error;
+      return res.status(200).json({ source: "supabase", ok: true });
     }
 
     const { kind, id, active } = req.body;
