@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { getAccessToken } from "@/lib/client/supabase";
+import { getLocalUploads } from "@/lib/client/local-uploads";
 import { videos as demoVideos, type Video } from "@/lib/videos";
 
 type StoredState = { liked: string[]; saved: string[]; history: string[]; subscriptions: string[] };
@@ -14,6 +15,8 @@ type AppState = StoredState & {
   toggleSaved: (id: string) => void;
   toggleSubscription: (channel: string) => void;
   addHistory: (id: string) => void;
+  addLocalVideo: (video: Video) => void;
+  refreshCatalog: () => Promise<void>;
 };
 
 const initialState: StoredState = { liked: [], saved: [], history: [], subscriptions: [] };
@@ -58,13 +61,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         if (stored) local = { ...initialState, ...JSON.parse(stored) };
       } catch { /* Ignore invalid local data. */ }
       if (!cancelled) setState(local);
+      if (!cancelled) setCatalog([...getLocalUploads(), ...demoVideos]);
 
       try {
         const catalogResponse = await fetch("/api/videos", { signal: AbortSignal.timeout(10000) });
         if (!catalogResponse.ok) throw new Error("Katalog tidak tersedia");
         const result = await catalogResponse.json() as { videos: Video[]; source: "dummy" | "supabase" };
         if (cancelled) return;
-        setCatalog(result.videos);
+        setCatalog([...getLocalUploads(), ...result.videos]);
         setCatalogSource(result.source);
         setCatalogReady(true);
 
@@ -112,6 +116,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [stateReady, state]);
 
   const sync = useCallback((kind: ActionKind, id: string, active = true) => {
+    if (id.startsWith("local-")) return;
     if (syncMode !== "supabase") {
       localStorage.removeItem(syncedKey);
       return;
@@ -146,9 +151,21 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     sync("history", id);
   }, [sync]);
 
+  const addLocalVideo = useCallback((video: Video) => {
+    setCatalog((current) => [video, ...current.filter((item) => item.id !== video.id)]);
+  }, []);
+
+  const refreshCatalog = useCallback(async () => {
+    const response = await fetch("/api/videos", { cache: "no-store" });
+    if (!response.ok) throw new Error("Katalog tidak dapat dimuat");
+    const result = await response.json() as { videos: Video[]; source: "dummy" | "supabase" };
+    setCatalog([...getLocalUploads(), ...result.videos]);
+    setCatalogSource(result.source);
+  }, []);
+
   return <StateContext.Provider value={{
     ...state, catalog, catalogSource, catalogReady, stateReady, syncMode,
-    toggleLiked, toggleSaved, toggleSubscription, addHistory,
+    toggleLiked, toggleSaved, toggleSubscription, addHistory, addLocalVideo, refreshCatalog,
   }}>{children}</StateContext.Provider>;
 }
 

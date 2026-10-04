@@ -16,8 +16,18 @@ create table if not exists public.videos (
   verified boolean not null default false,
   is_short boolean not null default false,
   video_url text,
-  sort_order integer not null default 0
+  sort_order integer not null default 0,
+  owner_id uuid references auth.users(id) on delete set null,
+  status text not null default 'published' check (status in ('published'))
 );
+
+-- Safe to run again on projects created before uploads existed.
+alter table public.videos add column if not exists owner_id uuid references auth.users(id) on delete set null;
+alter table public.videos add column if not exists status text not null default 'published';
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('video-public', 'video-public', true, 104857600, array['video/mp4', 'image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 create table if not exists public.user_video_preferences (
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -59,11 +69,22 @@ alter table public.comments enable row level security;
 
 revoke all on public.videos, public.user_video_preferences, public.watch_history, public.subscriptions, public.comments from anon, authenticated;
 grant select on public.videos, public.comments to anon, authenticated;
+grant insert on public.videos to authenticated;
 grant select, insert, update, delete on public.user_video_preferences, public.watch_history, public.subscriptions to authenticated;
 grant insert on public.comments to authenticated;
 
 drop policy if exists "Public videos are readable" on public.videos;
-create policy "Public videos are readable" on public.videos for select to anon, authenticated using (true);
+create policy "Public videos are readable" on public.videos for select to anon, authenticated using (status = 'published');
+drop policy if exists "Creators can publish videos" on public.videos;
+create policy "Creators can publish videos" on public.videos for insert to authenticated
+with check (owner_id = (select auth.uid()) and status = 'published' and (select (auth.jwt()->>'is_anonymous')::boolean) is false);
+
+drop policy if exists "Creators can upload media" on storage.objects;
+create policy "Creators can upload media" on storage.objects for insert to authenticated
+with check (bucket_id = 'video-public' and (storage.foldername(name))[1] = (select auth.uid()::text) and (select (auth.jwt()->>'is_anonymous')::boolean) is false);
+drop policy if exists "Creators can inspect media" on storage.objects;
+create policy "Creators can inspect media" on storage.objects for select to authenticated
+using (bucket_id = 'video-public' and (storage.foldername(name))[1] = (select auth.uid()::text) and (select (auth.jwt()->>'is_anonymous')::boolean) is false);
 
 drop policy if exists "Public comments are readable" on public.comments;
 create policy "Public comments are readable" on public.comments for select to anon, authenticated using (true);

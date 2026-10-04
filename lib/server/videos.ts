@@ -22,7 +22,7 @@ export async function listVideos(): Promise<{ videos: Video[]; source: "supabase
   try {
     const client = publicSupabase();
     if (!client) return { videos: demoVideos, source: "dummy" };
-    const { data, error } = await client.from("videos").select("*").order("sort_order", { ascending: true });
+    const { data, error } = await client.from("videos").select("*").eq("status", "published").order("sort_order", { ascending: true });
     if (error) throw error;
     if (!data?.length) return { videos: demoVideos, source: "dummy", warning: "Tabel videos belum berisi data." };
     return { videos: (data as VideoRow[]).map(toVideo), source: "supabase" };

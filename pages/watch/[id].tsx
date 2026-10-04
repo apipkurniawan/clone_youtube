@@ -10,6 +10,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { demoComments, type VideoComment } from "@/lib/comments";
 import { getAccessToken } from "@/lib/client/supabase";
+import { getLocalVideoFile } from "@/lib/client/local-uploads";
 import { listVideos } from "@/lib/server/videos";
 import type { Video } from "@/lib/videos";
 
@@ -17,6 +18,9 @@ type Props = { initialVideo: Video; initialCatalog: Video[] };
 
 export default function WatchPage({ initialVideo, initialCatalog }: Props) {
   const { catalog, catalogReady } = useAppState();
+  if (catalogReady && initialVideo.id.startsWith("local-") && !catalog.some((item) => item.id === initialVideo.id)) {
+    return <AppShell active="watch" wide><div className="mx-auto max-w-xl px-6 py-24 text-center"><h1 className="text-2xl font-bold">Video tidak tersedia di browser ini</h1><p className="mt-3 text-zinc-500">Video demo tersimpan di perangkat tempat video diunggah.</p><Link href="/" className="mt-6 inline-block font-semibold text-blue-600 hover:underline">Kembali ke beranda</Link></div></AppShell>;
+  }
   const video = catalogReady ? catalog.find((item) => item.id === initialVideo.id) ?? initialVideo : initialVideo;
   const displayCatalog = catalogReady && catalog.some((item) => item.id === initialVideo.id) ? catalog : initialCatalog;
   return <WatchContent key={video.id} video={video} catalog={displayCatalog} />;
@@ -29,9 +33,23 @@ function WatchContent({ video, catalog }: { video: Video; catalog: Video[] }) {
   const [comments, setComments] = useState<VideoComment[]>(demoComments);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
+  const [localVideoUrl, setLocalVideoUrl] = useState("");
+  const [localVideoError, setLocalVideoError] = useState(false);
   const recommendations = catalog.filter((item) => item.id !== video.id && !item.short).sort((a, b) => Number(b.category === video.category) - Number(a.category === video.category)).slice(0, 9);
 
   useEffect(() => { if (stateReady) addHistory(video.id); }, [video.id, stateReady, addHistory]);
+  useEffect(() => {
+    if (!video.id.startsWith("local-")) return;
+    let active = true;
+    let objectUrl = "";
+    void getLocalVideoFile(video.id).then((blob) => {
+      if (!active) return;
+      if (!blob) { setLocalVideoError(true); return; }
+      objectUrl = URL.createObjectURL(blob);
+      setLocalVideoUrl(objectUrl);
+    }).catch(() => { if (active) setLocalVideoError(true); });
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [video.id]);
   useEffect(() => {
     let cancelled = false;
     void fetch(`/api/comments?videoId=${encodeURIComponent(video.id)}`)
@@ -74,7 +92,7 @@ function WatchContent({ video, catalog }: { video: Video; catalog: Video[] }) {
     <Head><title>{video.title} - YouTube Clone</title><meta name="description" content={video.description} /></Head>
     <div className="mx-auto grid max-w-[1740px] grid-cols-1 gap-6 px-4 pb-24 pt-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-7 xl:grid-cols-[minmax(0,1fr)_400px]">
       <div className="min-w-0">
-        <div className="relative aspect-video overflow-hidden rounded-xl bg-black"><video key={video.id} className="h-full w-full" controls playsInline poster={video.thumbnail} preload="none" aria-label={`Pemutar video ${video.title}`}><source src={video.videoUrl ?? "/demo-video.mp4"} type="video/mp4" />Browser Anda tidak mendukung pemutaran video.</video>{(!video.videoUrl || video.videoUrl === "/demo-video.mp4") && <span className="pointer-events-none absolute left-3 top-3 rounded bg-black/65 px-2 py-1 text-[11px] font-semibold text-white">Video demo</span>}</div>
+        <div className="relative aspect-video overflow-hidden rounded-xl bg-black">{video.id.startsWith("local-") && !localVideoUrl ? <div className="flex h-full items-center justify-center text-sm text-white">{localVideoError ? "File video demo tidak tersedia di browser ini." : "Memuat video dari browser..."}</div> : <video key={`${video.id}:${localVideoUrl}`} className="h-full w-full" controls playsInline poster={video.thumbnail} preload="none" aria-label={`Pemutar video ${video.title}`}><source src={video.id.startsWith("local-") ? localVideoUrl : video.videoUrl ?? "/demo-video.mp4"} type="video/mp4" />Browser Anda tidak mendukung pemutaran video.</video>}{!video.id.startsWith("local-") && (!video.videoUrl || video.videoUrl === "/demo-video.mp4") && <span className="pointer-events-none absolute left-3 top-3 rounded bg-black/65 px-2 py-1 text-[11px] font-semibold text-white">Video demo</span>}</div>
         <h1 className="mt-4 text-xl font-bold leading-snug">{video.title}</h1>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3"><Link href={`/?channel=${encodeURIComponent(video.channel)}`}><Avatar name={video.channel} color={video.avatar} className="h-10 w-10" /></Link><div className="min-w-0"><Link href={`/?channel=${encodeURIComponent(video.channel)}`} className="flex items-center gap-1 text-sm font-bold hover:underline">{video.channel}{video.verified && <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-zinc-500 text-white"><Check size={9} strokeWidth={3} /></span>}</Link><p className="text-xs text-zinc-500 dark:text-zinc-400">{video.subscribers} subscriber</p></div><Button size="sm" variant={subscriptions.includes(video.channel) ? "secondary" : "default"} className="ml-2" onClick={() => toggleSubscription(video.channel)}>{subscriptions.includes(video.channel) ? "Subscribed" : "Subscribe"}</Button></div>
@@ -90,6 +108,11 @@ function WatchContent({ video, catalog }: { video: Video; catalog: Video[] }) {
 }
 
 export const getServerSideProps: GetServerSideProps<Props> = async ({ params }) => {
+  const id = typeof params?.id === "string" ? params.id : "";
+  if (/^local-[0-9a-f-]{36}$/i.test(id)) {
+    const placeholder: Video = { id, title: "Memuat video...", channel: "Kanal Saya", handle: "@kanalsaya", avatar: "#6554cb", thumbnail: "", category: "Lifestyle", views: "0 x ditonton", uploaded: "baru saja", duration: "0:00", description: "", subscribers: "0", likes: "0" };
+    return { props: { initialVideo: placeholder, initialCatalog: [] } };
+  }
   const result = await listVideos();
   const initialVideo = result.videos.find((item) => item.id === params?.id);
   if (!initialVideo) return { notFound: true };

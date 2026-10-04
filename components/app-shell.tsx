@@ -2,10 +2,11 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Bell, ChevronDown, Clock3, Compass, Flame, History, Home, Menu, Mic, Moon, PlaySquare, Plus, Search, Settings, Sun, ThumbsUp, Video, X } from "lucide-react";
+import { Bell, ChevronDown, Clock3, Compass, Flame, History, Home, Menu, Moon, PlaySquare, Plus, Search, Settings, Sun, ThumbsUp, Video, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAppState } from "@/components/app-state";
+import { VoiceSearch } from "@/components/voice-search";
 import { cn } from "@/lib/utils";
 
 type NavItem = { label: string; icon: typeof Home; href: string; key: string };
@@ -48,6 +49,11 @@ export function AppShell({ children, active = "home", wide = false }: { children
     const query = search.trim();
     if (query) { void router.push(`/?search=${encodeURIComponent(query)}`); setMobileSearch(false); }
   };
+  const submitVoiceSearch = (query: string) => {
+    setSearch(query);
+    setMobileSearch(false);
+    void router.push(`/?search=${encodeURIComponent(query)}`);
+  };
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
@@ -70,11 +76,12 @@ export function AppShell({ children, active = "home", wide = false }: { children
           <input aria-label="Cari video" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Telusuri video" className="min-w-0 flex-1 bg-transparent px-5 text-[15px] outline-none placeholder:text-zinc-500" />
           <button type="submit" aria-label="Cari" className="flex w-16 items-center justify-center border-l border-zinc-300 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"><Search size={20} /></button>
         </div>
-        {!mobileSearch && <Button type="button" variant="secondary" size="icon" aria-label="Pencarian suara" onClick={() => setNotice("Pencarian suara akan tersedia segera.")}><Mic size={20} /></Button>}
+        <VoiceSearch onSearch={submitVoiceSearch} className="shrink-0" />
       </form>
       <div className="flex min-w-[120px] items-center justify-end gap-1 sm:min-w-[170px] sm:gap-2">
         <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Buka pencarian" onClick={() => setMobileSearch(true)}><Search size={21} /></Button>
-        <DropdownMenu.Root><DropdownMenu.Trigger asChild><Button variant="ghost" size="icon" aria-label="Buat konten"><Plus size={23} /></Button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content sideOffset={10} align="end" className="z-[70] min-w-48 rounded-xl border border-zinc-200 bg-white p-1.5 text-sm shadow-xl dark:border-zinc-700 dark:bg-zinc-900"><DropdownMenu.Item onSelect={() => setNotice("Upload video akan tersedia segera.")} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800"><Video size={18} /> Upload video</DropdownMenu.Item></DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
+        <VoiceSearch onSearch={submitVoiceSearch} variant="ghost" className="sm:hidden" />
+        <DropdownMenu.Root><DropdownMenu.Trigger asChild><Button variant="ghost" size="icon" aria-label="Buat konten"><Plus size={23} /></Button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content sideOffset={10} align="end" className="z-[70] min-w-48 rounded-xl border border-zinc-200 bg-white p-1.5 text-sm shadow-xl dark:border-zinc-700 dark:bg-zinc-900"><DropdownMenu.Item onSelect={() => { void router.push("/upload"); }} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800"><Video size={18} /> Upload video</DropdownMenu.Item></DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
         <Button variant="ghost" size="icon" aria-label="Notifikasi" className="hidden sm:inline-flex" onClick={() => setNotice("Belum ada notifikasi baru.")}><Bell size={21} /></Button>
         <DropdownMenu.Root><DropdownMenu.Trigger asChild><button aria-label="Menu profil" className="ml-1 rounded-full outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-blue-500"><Avatar name={profileName} color="#6554cb" className="h-8 w-8" /></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content sideOffset={12} align="end" className="z-[70] w-64 rounded-xl border border-zinc-200 bg-white p-2 text-sm shadow-xl dark:border-zinc-700 dark:bg-zinc-900"><div className="flex items-center gap-3 border-b border-zinc-100 px-2 py-3 dark:border-zinc-800"><Avatar name={profileName} color="#6554cb" className="h-10 w-10" /><div><p className="font-semibold">{profileName}</p><p className="text-xs text-zinc-500">{syncMode === "supabase" ? "Sesi anonim" : "@raka.pratama"}</p></div></div><DropdownMenu.Item onSelect={toggleTheme} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800">{dark ? <Sun size={18} /> : <Moon size={18} />} Tampilan {dark ? "terang" : "gelap"}</DropdownMenu.Item><DropdownMenu.Item onSelect={() => setNotice("Pengaturan akun akan tersedia segera.")} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800"><Settings size={18} /> Pengaturan</DropdownMenu.Item></DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
       </div>

@@ -9,7 +9,9 @@ npm install
 npm run dev
 ```
 
-Buka `http://localhost:3000`. Tidak perlu database untuk mencoba beranda, pencarian, Shorts, halaman tonton, komentar demo, suka, simpan, subscribe, dan histori. Aktivitas dalam mode dummy tersimpan di `localStorage`; komentar baru hanya bertahan selama halaman tonton masih terbuka.
+Buka `http://localhost:3000`. Tidak perlu database untuk mencoba beranda, pencarian, Shorts, halaman tonton, upload demo lokal, komentar demo, suka, simpan, subscribe, dan histori. Aktivitas dalam mode dummy tersimpan di `localStorage`; komentar baru hanya bertahan selama halaman tonton masih terbuka. Video upload demo disimpan di IndexedDB browser ini.
+
+Pencarian suara tersedia lewat tombol mikrofon di header, termasuk pada layar seluler. Izinkan akses mikrofon saat diminta, lalu ucapkan kata kunci; hasil transkrip final akan membuka halaman hasil pencarian. Fitur ini menggunakan Web Speech API pada browser yang mendukungnya. Jika tidak tersedia atau izin ditolak, gunakan kolom pencarian teks.
 
 ## Menghubungkan Supabase
 
@@ -17,6 +19,8 @@ Buka `http://localhost:3000`. Tidak perlu database untuk mencoba beranda, pencar
 2. Jalankan [supabase/schema.sql](supabase/schema.sql) di SQL Editor, lalu [supabase/seed.sql](supabase/seed.sql) untuk mengisi 16 video contoh. Seed bisa dibuat ulang dari `lib/videos.ts` dengan `node scripts/generate-supabase-seed.mjs`.
 3. Salin `.env.example` menjadi `.env.local`, lalu isi `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` dengan URL project serta publishable/anon key Supabase. Jangan gunakan service role key.
 4. Jalankan ulang `npm run dev`. Untuk deployment, set variabel yang sama sebelum build.
+
+Untuk upload publik, jalankan ulang `supabase/schema.sql` agar bucket `video-public` dan policy kreator tersedia, aktifkan login email/kata sandi, lalu buka **Buat konten → Upload video**. Akun permanen diperlukan untuk menerbitkan video; akun penonton anonim tidak memiliki izin upload. File MP4 sampai 100 MB dikirim langsung ke Supabase Storage dengan progress dan retry. Pastikan batas ukuran Storage project juga mengizinkan 100 MB. Alur serta batas implementasi ada di [dokumentasi flow upload dan watch](docs/video-upload-watch-flow.md).
 
 Ketika katalog Supabase berisi data, aplikasi membuat sesi anonim untuk menyimpan suka, Tonton nanti, histori, subscription, dan komentar dengan Row Level Security. Data aktivitas lokal yang cocok dengan katalog akan diimpor saat pertama kali tersambung. Sesi anonim melekat pada browser; bila data browser dihapus, akun anonim itu tidak bisa dipulihkan tanpa menautkan metode login permanen.
 
@@ -33,6 +37,7 @@ Rincian perilaku saat ini dan rancangan fitur upload ada di [dokumentasi flow up
 | `/api/comments?videoId=:id` | GET | Komentar video |
 | `/api/comments` | POST | Kirim komentar; memakai bearer token saat Supabase aktif |
 | `/api/library` | GET, POST | Baca atau ubah suka, simpan, histori, dan subscription |
+| `/api/uploads` | POST | Verifikasi file Storage dan publikasikan metadata video milik kreator |
 
 Thumbnail dan video contoh berada di `public/`, sehingga mode dummy tidak bergantung pada layanan media eksternal. Thumbnail berasal dari Unsplash. Video contoh berasal dari [MDN interactive examples](https://github.com/mdn/interactive-examples) (CC0).
 
