@@ -24,6 +24,8 @@ Jika variabel lingkungan belum diisi, tabel belum dibuat, tabel video kosong, at
 
 ## API
 
+Rincian perilaku saat ini dan rancangan fitur upload ada di [dokumentasi flow upload dan watch](docs/video-upload-watch-flow.md).
+
 | Endpoint | Metode | Fungsi |
 | --- | --- | --- |
 | `/api/videos` | GET | Daftar video dan sumber data (`supabase` atau `dummy`) |
